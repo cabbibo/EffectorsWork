@@ -1,0 +1,219 @@
+﻿#pragma kernel CSMain
+
+float _DeltaTime;
+float _Time;
+int _Reset;
+
+float3 _Hand;
+float _SpringDistance;
+int _NumVerts;
+
+int _NumberColliders;
+
+
+
+#include "Chunks/SkinnedVert.cginc"
+#include "Chunks/HairVert.cginc"
+
+
+struct Collider{
+  float id;
+  float shape;
+  float4x4 transform;
+  float4x4 inverse;
+};
+
+
+#include "Chunks/snoise.cginc"
+#include "Chunks/curlNoise.cginc"
+
+RWStructuredBuffer<HairVert> hairBuffer;
+RWStructuredBuffer<SkinnedVert> baseBuffer;
+RWStructuredBuffer<Collider> colliderBuffer;
+
+float3 getVel( float3 p1 , float3 p2 ){
+
+  float3 v = p1 - p2;
+
+  if( length( v ) > .5){ v = normalize( v ) *.5; }
+  return v;
+}
+
+float sdSphere( float3 p, float s ){
+  return length( p ) - s;
+}
+
+
+float sphereDistance( float3 p , float4x4 m ){
+
+    float4 q = mul( m , float4( p.x , p.y , p.z , 1. ));
+
+    float3 s = float3(  length( float3( m[0][0] , m[0][1] , m[0][2] ) ),
+              length( float3( m[1][0] , m[1][1] , m[1][2] ) ),
+              length( float3( m[2][0] , m[2][1] , m[2][2] ) ) );
+
+    return sdSphere( q.xyz ,  s * .01 + .53 );
+
+}
+
+float sdBox( float3 p, float3 b ){
+  float3 d = abs(p) - b;
+  return min(max(d.x,max(d.y,d.z)),0.0) +
+         length(max(d,0.0));
+}
+
+float boxDistance( float3 p , float4x4 m ){
+
+    float4 q = (mul( m , float4( p.x , p.y , p.z , 1. )));
+
+    float3 s = float3(  length( float3( m[0][0] , m[0][1] , m[0][2] ) ),
+              length( float3( m[1][0] , m[1][1] , m[1][2] ) ),
+              length( float3( m[2][0] , m[2][1] , m[2][2] ) ) );
+    return sdBox( q.xyz , s * .01 + float3( .5 , .5 , .5 ) ) ;
+
+}
+
+float map(float3 p , float4x4 m , float shape ){
+
+  float d = 1000;
+
+  if( shape == 0 ){
+    d = sphereDistance( p , m );
+  }else if( shape == 1 ){
+    d= boxDistance( p , m );
+  
+  // fallback defaults to sphereDistance
+  }else{
+    d = sphereDistance( p , m );
+  }
+
+  return d;
+
+}
+
+float3 calcNormal( in float3 pos , in float4x4 mat ){
+
+        float3 eps = float3( 0.01, 0.0, 0.0 );
+        float3 nor = float3(
+            boxDistance(pos+eps.xyy,mat).x - boxDistance(pos-eps.xyy,mat).x,
+            boxDistance(pos+eps.yxy,mat).x - boxDistance(pos-eps.yxy,mat).x,
+            boxDistance(pos+eps.yyx,mat).x - boxDistance(pos-eps.yyx,mat).x );
+        return normalize(nor);
+
+      }
+
+float3 calcNormal( in float3 pos , in float4x4 mat , float shape ){
+
+        float3 eps = float3( 0.01, 0.0, 0.0 );
+        float3 nor = float3(
+            map(pos+eps.xyy,mat,shape).x - map(pos-eps.xyy,mat,shape).x,
+            map(pos+eps.yxy,mat,shape).x - map(pos-eps.yxy,mat,shape).x,
+            map(pos+eps.yyx,mat,shape).x - map(pos-eps.yyx,mat,shape).x );
+        return normalize(nor);
+
+      }
+
+
+#define NR_THREADS 64
+[numthreads(NR_THREADS,1,1)]
+void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 id : SV_DispatchThreadID) {
+  
+
+  //int pID = id.x + id.y * gridX + id.z * gridX * gridY;
+
+  int pID = threadID + u3GroupID * NR_THREADS;
+
+  if( pID < _NumVerts ){
+
+    HairVert vert = hairBuffer[ pID ];
+
+    SkinnedVert b1 = baseBuffer[(int)vert.triIDs.x];
+    SkinnedVert b2 = baseBuffer[(int)vert.triIDs.y];
+    SkinnedVert b3 = baseBuffer[(int)vert.triIDs.z];
+
+
+    float3 basePos = b1.pos * vert.triWeights.x + b2.pos * vert.triWeights.y + b3.pos * vert.triWeights.z;
+    float3 baseNor = b1.nor * vert.triWeights.x + b2.nor * vert.triWeights.y + b3.nor * vert.triWeights.z;
+    float3 baseTan = b1.tan * vert.triWeights.x + b2.tan * vert.triWeights.y + b3.tan * vert.triWeights.z;
+
+    if( _Reset == 1 ){
+      vert.oPos = basePos + baseNor * _SpringDistance * vert.uv.x;// vert.ogPos;
+      vert.pos = basePos + baseNor * _SpringDistance * vert.uv.x;//vert.ogPos;
+    }else{
+
+
+      //float3 tNorm = mul( transformMatrix[0] , float4( vert.norm , 0)).xyz;
+      float g = 2.3;
+
+
+      float3 force= baseNor  * g ;// * g;// + float3( 0, .3, -.5);
+
+      force += baseTan * g * 3;///float3(0,-3,0);
+    //force += .3 * curlNoise( basePos  * 1  + float3( 0 , _Time , 0));
+      
+      if( vert.uv.x == 0 ){ 
+        //float3 tPos = mul( transformMatrix[0] , float4( vert.ogPos , 1)).xyz; 
+        vert.pos = basePos; 
+        vert.oPos = basePos;
+      }
+
+/*
+      for( int id = 0; id < _NumberColliders; id++  ){
+
+        Collider c = colliderBuffer[id];
+
+       float d = map( vert.pos , c.inverse , c.shape );
+        float3 nor = calcNormal( vert.pos , c.inverse , c.shape );
+
+        if( d < 0 ){
+          vert.pos -= nor * d;
+          //force -= 100 * nor * d;//10 * nor * d;
+        }
+
+
+      }*/
+
+
+    // Inertia: objects in motion stay in motion.
+      float3 vel = getVel( vert.pos , vert.oPos);
+
+      float3 acceleration = force;
+
+      if( length( acceleration ) > 100.5 ){
+        acceleration = normalize( acceleration) * 100.5;
+      }
+
+      float dampening = .9;//.99999;// - vert.life * .01;
+      float3 next = vert.pos + vel * dampening + acceleration * _DeltaTime * _DeltaTime;
+
+      vert.oPos = vert.pos;
+      vert.pos = next;
+      vert.vel = vel;
+
+      vert.debug = baseTan;
+
+      if( vert.uv.x == 0 ){ 
+        //float3 tPos = mul( transformMatrix[0] , float4( vert.ogPos , 1)).xyz; 
+        vert.pos = basePos; 
+        vert.oPos = basePos;
+      }else{
+        //vert.pos = basePos + baseNor + baseTan* 5; 
+        //vert.oPos = basePos+ baseNor + baseTan* 5; 
+
+      }
+
+
+
+
+      //vert.pos = basePos + baseNor*  _SpringDistance *vert.uv.x;
+
+      
+
+    }
+
+
+    hairBuffer[pID] = vert;
+
+  }
+  
+}

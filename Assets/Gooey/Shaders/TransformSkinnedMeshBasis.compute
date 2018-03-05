@@ -1,0 +1,73 @@
+﻿#pragma kernel CSMain
+
+float _DeltaTime;
+float _Time;
+int _Reset;
+
+
+int _NumMeshes;
+
+#include "Chunks/Mesh.cginc"
+#include "Chunks/SkinnedVert.cginc"
+
+
+#define pi 3.14159
+
+
+RWStructuredBuffer<Mesh> basisBuffer;
+RWStructuredBuffer<SkinnedVert> vertBuffer;
+
+#include "Chunks/rotationMatrix.cginc"
+#include "Chunks/scaleMatrix.cginc"
+#include "Chunks/translationMatrix.cginc"
+
+
+
+#define NR_THREADS 64
+[numthreads(NR_THREADS,1,1)]
+void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 id : SV_DispatchThreadID) {
+  
+
+  //int pID = id.x + id.y * gridX + id.z * gridX * gridY;
+
+  int pID = threadID + u3GroupID * NR_THREADS;
+
+
+
+  if( pID < _NumMeshes ){
+
+
+
+    Mesh basis = basisBuffer[ pID ];
+
+    SkinnedVert b1 = vertBuffer[(int)basis.triIDs.x];
+    SkinnedVert b2 = vertBuffer[(int)basis.triIDs.y];
+    SkinnedVert b3 = vertBuffer[(int)basis.triIDs.z];
+
+
+    float3 basePos = b1.pos * basis.triWeights.x + b2.pos * basis.triWeights.y + b3.pos * basis.triWeights.z;
+    float3 baseNor = b1.nor * basis.triWeights.x + b2.nor * basis.triWeights.y + b3.nor * basis.triWeights.z;
+    float3 baseTan = b1.tan * basis.triWeights.x + b2.tan * basis.triWeights.y + b3.tan * basis.triWeights.z;
+
+    float3 bindNor = b1.bindNor * basis.triWeights.x + b2.bindNor * basis.triWeights.y + b3.bindNor * basis.triWeights.z;
+
+
+    float4x4 t = translationMatrix( basePos );
+
+
+    baseNor = normalize( baseNor);
+    baseTan = normalize( baseTan);
+    float3 dir = normalize( cross( baseNor, baseTan ));
+    float4x4 r = rotationMatrix( dir , -baseNor);
+
+
+    float4x4 s = scaleMatrix(float3(1,1,1));
+
+   // basis.transform = mul( t , mul(mul(r,mul(r2,r3)),s) );
+    basis.transform = mul( t , mul(r,s) );
+
+    basisBuffer[pID] = basis;
+
+  }
+  
+}
