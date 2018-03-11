@@ -8,28 +8,32 @@ public class ConfigureSkinnedMesh : MonoBehaviour {
 	  public GameObject bonePrefab;
 	  public GameObject connectionPrefab;
 	  public GameObject Base;
-
-	  //public C
-
 	  public GameObject BaseConnection;
+
+
+
 
 	  public SkinnedMeshRenderer skinnedMesh;
 
 	  public Transform[] bones;
 	  public List<GameObject> PhysicsSkeleton;
+	  public Rigidbody newbones;
 
 
 	  private int recursionCount = 0;
 
+      private FollowBait fb;
+
 		// Use this for initialization
 		void Start () {
 
+        fb = GetComponent<FollowBait>();
 	    skinnedMesh = GetComponent<SkinnedMeshRenderer>();
 
 	    bones = skinnedMesh.bones;
 
 	    Transform baseBone = bones[0];
-	    
+
 	    Vector3 dir = baseBone.position - Base.transform.position;
 
 	  	Base.GetComponent<ConnectionLinker>().Length = dir.magnitude;
@@ -38,6 +42,9 @@ public class ConfigureSkinnedMesh : MonoBehaviour {
 	    //bl.Connection = connection;
 
 	    BaseConnection = connection;
+
+        fb.head = connection.GetComponent<Rigidbody>();
+        fb.head.isKinematic = false;
 
 	    //connection.transform.parent = Base.transform;
 
@@ -52,13 +59,13 @@ public class ConfigureSkinnedMesh : MonoBehaviour {
 			if( bone.childCount > 0 ){
 
 
-				GameObject connection = new GameObject();//Instantiate( connectionPrefab , new Vector3(0,0,0) , Quaternion.identity ); 					
-				
+				GameObject connection = new GameObject();//Instantiate( connectionPrefab , new Vector3(0,0,0) , Quaternion.identity );
+
 				bool found = false;
 				foreach (Transform child in bone ){
 					if( child.gameObject.tag == "bone"){
 						Destroy( connection );
-						connection = CreateConnection( child , bone , grandDadBone , false );	 
+						connection = CreateConnection( child , bone , grandDadBone , false );
 
 						found = true;
 						break;
@@ -67,13 +74,13 @@ public class ConfigureSkinnedMesh : MonoBehaviour {
 
 				if( found == false ){
 					Debug.Log("NOOOO");
-					connection =Instantiate( connectionPrefab , new Vector3(0,0,0) , Quaternion.identity ); 
+					connection =Instantiate( connectionPrefab , new Vector3(0,0,0) , Quaternion.identity );
 				}
 
 				int i = 0;
 				foreach (Transform child in bone ){
 					if( child.gameObject.tag == "bone"){
-						connection.GetComponent<ConnectionLinker>().Kiddies.Add( child );	
+						connection.GetComponent<ConnectionLinker>().Kiddies.Add( child );
 						recurseDemBones( child , connection , recursionCount + 1 );
 					}
 		  	}
@@ -84,8 +91,8 @@ public class ConfigureSkinnedMesh : MonoBehaviour {
 
 
 
-	  	
-	  	
+
+
 
 	  }
 
@@ -118,23 +125,23 @@ public class ConfigureSkinnedMesh : MonoBehaviour {
 	  	//print( "connected");
 	  	//print( dadCL.Length );
 	  	connection.transform.localScale = new Vector3(dir.magnitude * .5f , dir.magnitude * .5f , dir.magnitude * .5f );
-	 
+
 	 		connection.GetComponent<ConnectionLinker>().Length = dir.magnitude;
 	 		dad.gameObject.GetComponent<BoneLinker>().DadConnection = grandDadBone;
 	 		dad.gameObject.GetComponent<BoneLinker>().Connection = connection;
 
 //	 		print( grandDadBone );
 
-	 	
-	 
+
+
 	 		//connection.transform.parent = dad;
 	 		//connection.transform.rotation = dad.rotation;//Quaternion.LookRotation(dir);
 
 	 		return connection;
-	  	
+
 	  }
 
-		
+
 		// Update is called once per frame
 		void FixedUpdate () {
 
@@ -147,7 +154,7 @@ public class ConfigureSkinnedMesh : MonoBehaviour {
 				bones[i].rotation = c.transform.rotation;
 			}
 
-			
+
 		}
 
 

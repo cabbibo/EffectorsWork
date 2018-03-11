@@ -24,20 +24,29 @@ public class BasicVertBuffer : VertBuffer {
   };
 
 
-  public override void CreateBuffer(){
+  public virtual void GetMesh(){
 
-    structSize = 1 + 3 + 3 + 3+2 + 3+ 3;
-
-    if( mesh == null ){
+    if( mesh == null){
       mesh = gameObject.GetComponent<MeshFilter>().sharedMesh;
     }
 
-    
+  }
+
+  public override void BeforeCreateBuffer(){
+    GetMesh();
+    vertices = mesh.vertices;
+    count = vertices.Length;
+    structSize = 1 + 3 + 3 + 3+2 + 3+ 3;
+  }
+
+
+  public override void CreateBuffer(){
+
+
     vertices = mesh.vertices;
     uvs = mesh.uv;
     normals = mesh.normals;
 
-    count = vertices.Length;
 
     _buffer = new ComputeBuffer( count , structSize * sizeof(float) );
     values = new float[ structSize * count ];
@@ -65,13 +74,13 @@ public class BasicVertBuffer : VertBuffer {
         t2 = transform.TransformDirection( t2 );
       }
 
-   
+
       if( translateMesh == true ){
         t1 = transform.TransformPoint( t1 );
         t2 = transform.TransformPoint( t2 );
       }
 
-      // used 
+      // used
       values[ index++ ] = 1;
 
       // positions
@@ -105,11 +114,11 @@ public class BasicVertBuffer : VertBuffer {
       values[ index++ ] = 0;
       values[ index++ ] = 0;
 
-    } 
-    
+    }
+
     _buffer.SetData(values);
 
-  
+
   }
 
 

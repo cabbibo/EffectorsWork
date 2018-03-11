@@ -19,24 +19,24 @@
 
 
           //  Blend SrcAlpha OneMinusSrcAlpha // Alpha blending
-            
+
             CGPROGRAM
             #pragma target 4.5
-            
+
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fwdbase
-            
+
             #include "UnityCG.cginc"
             #include "AutoLight.cginc"
             #include "Lighting.cginc"
 
-            
+
             #include "Chunks/HairVert.cginc"
             #include "Chunks/hsv.cginc"
 
             StructuredBuffer<HairVert> _vertBuffer;
-            
+
 
             uniform int _TubeWidth;
             uniform int _NumVertsPerHair;
@@ -54,7 +54,7 @@
             uniform float3 _Color3;
 
 
-            
+
         //A simple input struct for our pixel shader step containing a position.
         struct varyings {
           float4 pos      : SV_POSITION;
@@ -68,12 +68,12 @@
            half3 tspace0 : TEXCOORD6; // tangent.x, bitangent.x, normal.x
            half3 tspace1 : TEXCOORD7; // tangent.y, bitangent.y, normal.y
            half3 tspace2 : TEXCOORD8; // tangent.z, bitangent.z, normal.z
-    
+
         };
 
-        
 
-      
+
+
         //Our vertex function simply fetches a point from the buffer corresponding to the vertex index
         //which we transform with the view-projection matrix before passing to the pixel program.
         varyings vert (uint id : SV_VertexID){
@@ -88,7 +88,7 @@
             float idInTri2 = fmod( floor(float(id)/3) , 2 );
             uint tri  = id % 6;
 
-            // from getRibbonID 
+            // from getRibbonID
             float featherID = floor( id / 6) * 2;
 
 
@@ -111,13 +111,13 @@
 
           float3 nor = normalize(cross( left, dir ));
           //float3 left = normalize(cross( normalize(dir),viewDir));
-  
+
   				float l = length( dir );
-  	
+
 
 
   					float3 mid = v2.pos + dir * .3;
-  
+
             float3 f1 =  v1.pos;//left + v1.pos;
             float3 f2 =  -left * l * .4 + mid;
             float3 f3 =  left * l * .4 + mid;
@@ -170,7 +170,7 @@
 
 
         //o.col =  finalCol;
-          
+
 
           float3 fPos = float3( 0 , 0 , 0);
 
@@ -183,7 +183,7 @@
 
           o.eye = _WorldSpaceCameraPos - o.worldPos;
 
-          TRANSFER_VERTEX_TO_FRAGMENT(o);
+//          TRANSFER_VERTEX_TO_FRAGMENT(o);
         }
 
         }
@@ -191,11 +191,11 @@
           return o;
 
         }
-        
+
         //Pixel function returns a solid color for each point.
         float4 frag (varyings v) : COLOR {
 
-          float  atten = LIGHT_ATTENUATION(i);
+        //  float  atten = LIGHT_ATTENUATION(i);
 
           float3 x = ddx(v.worldPos);
           float3 y = ddy(v.worldPos);
@@ -219,14 +219,14 @@
           float m = dot( v.debug , nor );
 
 
-          float3 col;// =  _Color1; 
+          float3 col;// =  _Color1;
 
           //if( m < .2){ col = _Color2; }
 
           if( length(tCol.xyz) >1.4){
           	//discard;
           }
-          
+
          // col = lerp( _Color3 , col ,  fUV.x);
 
 
@@ -237,7 +237,7 @@
 
         //col = float3(v.uv.y, 0, 0);//v.nor * .5 + .5;//float3(1,1,1);
         col =  normalize(eyeRefl) * .5 + .5; //col2 * (fRefl * .5+.5);// * lerp( col1 , col2 , v.uv.x); //v.nor * .5 + .5;//float3( v.uv.x , v.uv.y , 0 );
-        
+
         col = v.uv.y *v.uv.y;
         col =  normalize(eyeRefl) * .5 + .5;
         col *= cubeCol * 3.4;
@@ -246,16 +246,16 @@
 //col = v.uv.y *v.uv.y;
 
         col *= tCol.xyz * tCol.xyz * tCol.xyz;
-     
+
          	//fCol = float3(1,1,1);
           return float4( col , 1);
         }
-        
+
         ENDCG
 
       }
     }
-    
+
     Fallback Off
 
   }

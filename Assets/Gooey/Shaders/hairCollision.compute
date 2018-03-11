@@ -29,7 +29,7 @@ float3 getVel( float3 p1 , float3 p2 ){
 #define NR_THREADS 64
 [numthreads(NR_THREADS,1,1)]
 void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 id : SV_DispatchThreadID) {
-  
+
 
   //int pID = id.x + id.y * gridX + id.z * gridX * gridY;
 
@@ -59,12 +59,12 @@ void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 
 
       float3 force = baseNor;
 
-      float3 tPos = mul( _transform , float4( basePos , 1)).xyz; 
+      float3 tPos = basePos;//mul( _transform , float4( basePos , 1)).xyz;
 
 
-      if( vert.uv.x == 0 ){ 
-        
-        vert.pos = tPos; 
+      if( vert.uv.x == 0 ){
+
+        vert.pos = tPos;
         vert.oPos = tPos;
       }
 
@@ -81,13 +81,13 @@ void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 
       vert.pos = next;
       vert.vel = vel;
 
-      if( vert.uv.x == 0 ){ 
-        //float3 tPos = mul( transformMatrix[0] , float4( vert.ogPos , 1)).xyz; 
-        vert.pos = tPos; 
+      if( vert.uv.x == 0 ){
+        //float3 tPos = mul( transformMatrix[0] , float4( vert.ogPos , 1)).xyz;
+        vert.pos = tPos;
         vert.oPos = tPos;
       }
 
-      
+
 
     }
 
@@ -95,5 +95,5 @@ void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 
     hairBuffer[pID] = vert;
 
   }
-  
+
 }

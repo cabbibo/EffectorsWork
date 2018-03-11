@@ -4,12 +4,13 @@
       _CubeMap( "Cube Map" , Cube ) = "white" {}
 		    _Color1 ("Tip Color", Color) = (1,.4,.2,1)
         _Color2 ("Tail Color", Color) = (1,0,0,1)
-		    _Color3 ("Tail Color", Color) = (1,0,0,1)
+        _Color3 ("lightColor", Color) = (1,0,0,1)
+        _Color4 ("ReflectColor", Color) = (1,0,0,1)
         }
 
         SubShader{
           //        Tags { "RenderType"="Transparent" "Queue" = "Transparent" }
-          Cull Off
+          Cull Front
           Pass{
 
             Lighting On
@@ -18,23 +19,23 @@
 
 
             Blend SrcAlpha OneMinusSrcAlpha // Alpha blending
-            
+
             CGPROGRAM
             #pragma target 4.5
-            
+
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fwdbase
-            
+
             #include "UnityCG.cginc"
             #include "AutoLight.cginc"
             #include "Lighting.cginc"
 
-            
+
             #include "Chunks/HairVert.cginc"
 
             StructuredBuffer<HairVert> _vertBuffer;
-            
+
 
             uniform int _TubeWidth;
             uniform int _NumVertsPerHair;
@@ -42,6 +43,7 @@
             uniform int _TotalHair;
             uniform int _TotalVerts;
 
+            uniform float3 _MOON;
             uniform sampler2D _NormalMap;
             uniform sampler2D _TexMap;
             uniform samplerCUBE _CubeMap;
@@ -50,9 +52,10 @@
             uniform float3 _Color2;
             uniform float3 _Color1;
             uniform float3 _Color3;
+            uniform float3 _Color4;
 
 
-            
+
         //A simple input struct for our pixel shader step containing a position.
         struct varyings {
           float4 pos      : SV_POSITION;
@@ -65,11 +68,11 @@
           LIGHTING_COORDS(6,7)
         };
 
-        
+
 
         float3 cubicCurve( float t , float3  c0 , float3 c1 , float3 c2 , float3 c3 ){
-          
-          float s  = 1. - t; 
+
+          float s  = 1. - t;
 
           float3 v1 = c0 * ( s * s * s );
           float3 v2 = 3. * c1 * ( s * s ) * t;
@@ -179,12 +182,12 @@
 
 
 
-            // from getRibbonID 
+            // from getRibbonID
             float bladeID = floor( id / ((_TubeWidth * (_TubeLength-1)) * 3 * 2));
             float remainID = id - bladeID * (_TubeWidth * (_TubeLength-1) * 3 * 2);
             float row = floor(remainID / (_TubeWidth * 3 * 2));
             float triID = floor( id / 6 );
-            
+
             float col = triID  % _TubeWidth;
             float colU = (triID +1 ) % _TubeWidth;
 
@@ -193,7 +196,7 @@
 
 
 
-            
+
             // Rebuilding the mesh in the vert shader
 
             float3 upPos; float3 doPos;
@@ -205,7 +208,7 @@
             float3 nor1 = normalize( upPos - doPos );
 
             float3 pos2 = cubicFromValue( r2 , bladeID , upPos , doPos );
-            float3 nor2 = normalize( upPos - doPos ); 
+            float3 nor2 = normalize( upPos - doPos );
 
 
             float3 x1 = normalize( cross( nor1 , float3( 1, 0 , 0)));
@@ -220,9 +223,9 @@
             float bladeNormed = float( bladeID)/ float( _TotalHair);
 
             float lengthModulator = (sin( float( bladeID) * 16135. ) + 2)/2;
-          
-            float radius  = .4 * (1-r1 * r1) * (r1 * r1);// * getRadius( r1 );
-            float radiusU = .4 * (1-r2 * r2) * (r2 * r2);// * getRadius( r2 );
+
+            float radius  = .04 * (1-r1 * r1) * (r1 * r1);// * getRadius( r1 );
+            float radiusU = .04 * (1-r2 * r2) * (r2 * r2);// * getRadius( r2 );
 
             //radius *= lengthModulator;
             //radiusU *= lengthModulator;
@@ -279,7 +282,7 @@
           int bladeBase = _NumVertsPerHair * int( bladeID );
           HairVert baseVert = _vertBuffer[ bladeBase ];
         //o.col =  finalCol;
-          
+
 
           float3 fPos = float3( 0 , 0 , 0);
 
@@ -297,7 +300,7 @@
           return o;
 
         }
-        
+
         //Pixel function returns a solid color for each point.
         float4 frag (varyings v) : COLOR {
 
@@ -307,31 +310,42 @@
           float m = dot( v.debug , v.nor );
 
 
-          float3 col =  _Color1; 
+          float3 col =  lerp(_Color1 , _Color2, v.uv.x);
 
           //if( m < .2){ col = _Color2; }
 
-          
-          col = lerp( _Color3 , col ,  v.uv.x);
+
+          float3 lightDir = -(_MOON - v.worldPos);
+
+          float match = -dot( normalize( lightDir) , v.nor);
 
 
         float3 eyeRefl = reflect( v.eye , v.nor );
 
         float3 cubeCol = texCUBE( _CubeMap , eyeRefl ).xyz;
 
+          float refl = clamp( dot( normalize(lightDir), normalize(eyeRefl)),0,1);//v.nor;
 
-        col = float3(1,1,1);
-        col *= cubeCol * (v.nor * .5 + .5) * 2; //col2 * (fRefl * .5+.5);// * lerp( col1 , col2 , v.uv.x); //v.nor * .5 + .5;//float3( v.uv.x , v.uv.y , 0 );
+          float lightV = clamp( match*match * match *30,0,1);
+          col = lerp( col , _Color3 , lightV);
+          col = lerp(col, _Color4, clamp( 100000*pow(refl,41) ,0,1));
+
+          col = v.nor * .5 + .5;
+          col *= lightV;
+
+        // col *= cubeCol;
+        //col = float3(1,1,1);
+        //col *= cubeCol * (v.nor * .5 + .5) * 2; //col2 * (fRefl * .5+.5);// * lerp( col1 , col2 , v.uv.x); //v.nor * .5 + .5;//float3( v.uv.x , v.uv.y , 0 );
 
          	//fCol = float3(1,1,1);
           return float4( col , 1.);
         }
-        
+
         ENDCG
 
       }
     }
-    
+
     Fallback Off
 
   }

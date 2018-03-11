@@ -4,6 +4,8 @@ using System.Collections.Generic;
 
 public class HairOnVertBuffer : MonoBehaviour {
 
+  public BREATHSETTER breath;
+
   public VertBuffer vertBuffer;
   public TriangleBuffer triBuffer;
 
@@ -26,7 +28,7 @@ public class HairOnVertBuffer : MonoBehaviour {
 
   public ColliderBuffer colliders;
 
-  
+
   public bool attach;
 
 
@@ -75,7 +77,7 @@ public class HairOnVertBuffer : MonoBehaviour {
     CreateBuffers();
 
     Reset();
-  
+
   }
 
   void OnDisable(){
@@ -86,7 +88,7 @@ public class HairOnVertBuffer : MonoBehaviour {
     if( _buffer != null ){ _buffer.Release(); }
   }
 
-  
+
   void CreateBuffers(){
 
     _buffer = new ComputeBuffer( fullVertCount , vertStructSize * sizeof(float));
@@ -98,7 +100,7 @@ public class HairOnVertBuffer : MonoBehaviour {
 
 
   triAreas = new float[triBuffer.values.Length/3];
-  
+
 
   float totalArea = 0;
     for( int i = 0; i < triBuffer.values.Length/3; i++ ){
@@ -119,7 +121,7 @@ public class HairOnVertBuffer : MonoBehaviour {
 
     for (int i = 0; i < fullVertCount; i++ ){
 
-          int id = i; 
+          int id = i;
           //print( index);
           //print( inValues.Length );
 
@@ -128,7 +130,7 @@ public class HairOnVertBuffer : MonoBehaviour {
 
           // Resets using same hairID, so RandomPointInTriangle shoudl work
           float randomVal = HelperFunctions.getRandomFloatFromSeed( hairID * 20 );
-          
+
           int tri0 = 3 * HelperFunctions.getTri( randomVal ,triAreas );
           int tri1 = tri0 + 1;
           int tri2 = tri0 + 2;
@@ -140,7 +142,7 @@ public class HairOnVertBuffer : MonoBehaviour {
           tri2 = triBuffer.values[tri2];
 
           Vector3 pos = HelperFunctions.GetRandomPointInTriangle( hairID , vertBuffer.vertices[ tri0 ] , vertBuffer.vertices[ tri1 ]  , vertBuffer.vertices[ tri2 ]  );
-          
+
           float a0 = HelperFunctions.AreaOfTriangle( pos , vertBuffer.vertices[tri1] , vertBuffer.vertices[tri2] );
           float a1 = HelperFunctions.AreaOfTriangle( pos , vertBuffer.vertices[tri0] , vertBuffer.vertices[tri2] );
           float a2 = HelperFunctions.AreaOfTriangle( pos , vertBuffer.vertices[tri0] , vertBuffer.vertices[tri1] );
@@ -159,7 +161,7 @@ public class HairOnVertBuffer : MonoBehaviour {
           /*float3 tang    = tri0.tang  * p0 + tri1.tang  * p1 + tri2.tang  * p2;
           float3 color   = tri0.color  * p0 + tri1.color  * p1 + tri2.color  * p2;
           float2 uv      = tri0.uv * p0 + tri1.uv * p1 + tri2.uv * p2;*/
-          
+
 
           float idVal = (float)id / (float)fullVertCount;
           float uvX = (float)idInHair / (float)numVertsPerHair;
@@ -172,7 +174,7 @@ public class HairOnVertBuffer : MonoBehaviour {
           float zPos = (float)zID/180;
 
           Vector3 fPos = pos + nor * hairLength * uvX;
-          
+
           // pos
           values[index++] = fPos.x;
           values[index++] = fPos.y;
@@ -212,16 +214,16 @@ public class HairOnVertBuffer : MonoBehaviour {
           values[index++] = p0;
           values[index++] = p1;
           values[index++] = p2;
-          
 
-        
+
+
     }
 
     _buffer.SetData(values);
-    
+
 
   }
-  
+
   void OnRenderObject(){
 
     if( showHairs == true ){
@@ -260,6 +262,8 @@ public class HairOnVertBuffer : MonoBehaviour {
       collisionShader.SetBuffer( _kernelCollision , "colliderBuffer" , colliders._buffer );
     }}
 
+    collisionShader.SetFloat("_BREATH", breath.regular );
+
 
 //    print(vertBuffer);
 //s    print(vertBuffer._buffer);
@@ -272,6 +276,8 @@ public class HairOnVertBuffer : MonoBehaviour {
     constraintShader.SetFloat( "_SpringDistance" , distBetweenHairs );
     constraintShader.SetInt( "_VertsPerHair" , numVertsPerHair );
     constraintShader.SetInt( "_NumVerts" , fullVertCount );
+
+
 
     constraintShader.SetBuffer( _kernelConstraint , "vertBuffer"     , _buffer );
     constraintShader.Dispatch( _kernelConstraint, (numGroups / 2) + 1 , 1 , 1);
@@ -290,12 +296,12 @@ public class HairOnVertBuffer : MonoBehaviour {
 
   // Update is called once per frame
   void LateUpdate () {
-  
+
 //    print( distBetweenHairs);
     Dispatch();
 
     if( attach == true ){ Reset();}
-  
-    
+
+
   }
 }

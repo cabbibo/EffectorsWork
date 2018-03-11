@@ -1,0 +1,112 @@
+﻿#pragma kernel CSMain
+
+float _DeltaTime;
+float _Time;
+int _Reset;
+
+float _BREATH;
+
+float3 _Hand;
+float _SpringDistance;
+int _NumVerts;
+
+
+
+#include "Chunks/Vert.cginc"
+#include "Chunks/HairVert.cginc"
+float4x4 _transform;
+
+RWStructuredBuffer<HairVert> hairBuffer;
+RWStructuredBuffer<Vert> baseBuffer;
+
+float3 getVel( float3 p1 , float3 p2 ){
+
+  float3 v = p1 - p2;
+
+  if( length( v ) > .5){ v = normalize( v ) *.5; }
+  return v;
+}
+
+#include "Chunks/snoise.cginc"
+#include "Chunks/curlNoise.cginc"
+
+#define NR_THREADS 64
+[numthreads(NR_THREADS,1,1)]
+void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 id : SV_DispatchThreadID) {
+
+
+  //int pID = id.x + id.y * gridX + id.z * gridX * gridY;
+
+  int pID = threadID + u3GroupID * NR_THREADS;
+
+  if( pID < _NumVerts ){
+
+    HairVert vert = hairBuffer[ pID ];
+
+    Vert b1 = baseBuffer[(int)vert.triIDs.x];
+    Vert b2 = baseBuffer[(int)vert.triIDs.y];
+    Vert b3 = baseBuffer[(int)vert.triIDs.z];
+
+
+    float3 basePos = b1.pos * vert.triWeights.x + b2.pos * vert.triWeights.y + b3.pos * vert.triWeights.z;
+    float3 baseNor = b1.nor * vert.triWeights.x + b2.nor * vert.triWeights.y + b3.nor * vert.triWeights.z;
+
+    if( _Reset == 1 ){
+      vert.oPos = basePos + baseNor * _SpringDistance * vert.uv.x;// vert.ogPos;
+      vert.pos = basePos + baseNor * _SpringDistance * vert.uv.x;//vert.ogPos;
+    }else{
+
+
+      //float3 tNorm = mul( transformMatrix[0] , float4( vert.norm , 0)).xyz;
+      float g = 10.3;
+
+
+      float3 force = baseNor * .3;
+      force += float3( 0 ,.4 , 0 );
+
+      float n  = 1+snoise( vert.pos * 3 + 10 * _BREATH );
+
+      force += float3(.4,0,0) * n * _BREATH * _BREATH * _BREATH;
+
+      force += .3 * curlNoise( vert.pos * 6 + float3( 0,_BREATH,0));
+
+
+      float3 tPos = basePos;//mul( _transform , float4( basePos , 1)).xyz;
+
+
+      if( vert.uv.x == 0 ){
+
+        vert.pos = tPos;
+        vert.oPos = tPos;
+      }
+
+
+    // Inertia: objects in motion stay in motion.
+      float3 vel = getVel( vert.pos , vert.oPos);
+
+      float3 acceleration = force;
+
+      float dampening = .9;//.99999;// - vert.life * .01;
+      float3 next = vert.pos + vel * dampening + acceleration * _DeltaTime * _DeltaTime;
+
+      vert.oPos = vert.pos;
+      vert.pos = next;
+      vert.vel = vel;
+
+      if( vert.uv.x == 0 ){
+        //float3 tPos = mul( transformMatrix[0] , float4( vert.ogPos , 1)).xyz;
+        vert.pos = tPos;
+        vert.oPos = tPos;
+      }
+
+
+
+    }
+
+
+    hairBuffer[pID] = vert;
+
+  }
+
+}
+

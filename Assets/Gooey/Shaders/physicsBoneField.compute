@@ -25,7 +25,7 @@ float3 getVel( float3 p1 , float3 p2 ){
 
   if( length( v ) > .5){ v = normalize( v ) *.5; }
   return v;
-} 
+}
 
 
 RWStructuredBuffer<Vert> pointBuffer;
@@ -33,7 +33,7 @@ RWStructuredBuffer<Vert> pointBuffer;
 #define NR_THREADS 64
 [numthreads(NR_THREADS,1,1)]
 void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 id : SV_DispatchThreadID) {
-  
+
   //int pID = id.x + id.y * gridX + id.z * gridX * gridY;
 
   int pID = threadID + u3GroupID * NR_THREADS;
@@ -43,14 +43,14 @@ void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 
     Vert vert = pointBuffer[ pID ];
 
     if( _Reset == 1 ){
-
+vert.pos = vert.pos;
     }else{
 
 
-       if( vert.uv.y == 0 ){ 
+       if( vert.uv.y == 0 ){
 
-           //float3 tPos = mul( transformMatrix[0] , float4( vert.ogPos , 1)).xyz; 
-        vert.pos = vert.pos; 
+           //float3 tPos = mul( transformMatrix[0] , float4( vert.ogPos , 1)).xyz;
+        vert.pos = vert.pos;
         vert.oPos = vert.oPos;
 
       }else{
@@ -64,7 +64,7 @@ void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 
       float3 force = vert.nor  * 3 + float3( 0 , 1, 0) * g;
 
 
-      //float3 tPos = mul( _transform , float4( vert.pos , 1)).xyz; 
+      //float3 tPos = mul( _transform , float4( vert.pos , 1)).xyz;
 
       force += 8 * float3(noise(vert.pos* 13 +_Time) - .5 , 0 , noise(vert.pos * 10 +_Time)-.5);
 
@@ -79,21 +79,21 @@ void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 
       float dampening = .85;//.99999;// - vert.life * .01;
       float3 next = vert.pos + vel * dampening + acceleration * _DeltaTime * _DeltaTime;
 
-     
+
       //vert.vel = vel;
         vert.oPos = vert.pos;
         vert.pos = next;
-     
-     
+
+
       }
 
-      
+
 
     }
 
     pointBuffer[pID] = vert;
 
   }
-  
+
 }
 
