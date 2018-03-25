@@ -31,6 +31,8 @@ Shader "Custom/VolumeCombo" {
 
     Pass {
 
+      Cull Off
+
       CGPROGRAM
 
       #pragma vertex vert
@@ -179,7 +181,7 @@ Shader "Custom/VolumeCombo" {
 					float val = getFogVal( p );
 
 
-          col += hsv( (float(i)/_NumberSteps * _HueSize)+_BaseHue + _BREATH * .2 + .3 + val * .5,  _Lightness + .4 , _Lightness);// * val;// * ( 1 - float(i)/_NumberSteps) * 30;
+          col += hsv( (float(i)/_NumberSteps * _HueSize)+_BaseHue + _BREATH * .2 + .3 + val * .5,  .6 , 1);// * val;// * ( 1 - float(i)/_NumberSteps) * 30;
 
 
         }

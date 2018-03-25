@@ -64,13 +64,13 @@ Material:
     - _HueSize: 1
     - _Metallic: 0
     - _Mode: 0
-    - _NoiseSize: 0.8
-    - _NoiseSpeed: 0.3
-    - _NumberSteps: 40
+    - _NoiseSize: 10
+    - _NoiseSpeed: 0.2
+    - _NumberSteps: 3
     - _OcclusionStrength: 1
     - _Parallax: 0.02
     - _SrcBlend: 1
-    - _TotalDepth: 0.16
+    - _TotalDepth: 0.01
     - _UVSec: 0
     - _ZWrite: 1
     m_Colors:

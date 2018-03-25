@@ -63,18 +63,18 @@ Material:
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _HueSize: 0.5
+    - _HueSize: 0.4
     - _Lightness: 0.8
     - _Metallic: 0
     - _Mode: 0
-    - _NumberSteps: 3
+    - _NumberSteps: 4
     - _OcclusionStrength: 1
     - _Parallax: 0.02
     - _PatternSize: 10
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
-    - _TotalDepth: 0.16
+    - _TotalDepth: 0.1
     - _UVSec: 0
     - _ZWrite: 1
     m_Colors:

@@ -80,6 +80,9 @@ public class BasicVertBuffer : VertBuffer {
         t2 = transform.TransformPoint( t2 );
       }
 
+      //     t1 = vertices[i];
+      //  t2 = normals[i];
+
       // used
       values[ index++ ] = 1;
 

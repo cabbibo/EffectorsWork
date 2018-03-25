@@ -5,12 +5,29 @@ using System.Collections.Generic;
 public class HairOnVertBuffer : MonoBehaviour {
 
   public BREATHSETTER breath;
+  public controllerInfo cInfo1;
+  public controllerInfo cInfo2;
+
+  public float handRepelRadius;
+  public float handRepelStrength;
+
+
 
   public VertBuffer vertBuffer;
   public TriangleBuffer triBuffer;
 
   public ComputeShader collisionShader;
   public ComputeShader constraintShader;
+  public ComputeShader gatherShader;
+
+    public bool calcOut;
+  public ComputeBuffer outBuffer;
+  public float[] outFloats;
+
+
+  public ComputeBuffer finalBuffer;
+  public float[] finalFloats;
+
 
   public Material material;
   public Color hairColor;
@@ -24,7 +41,7 @@ public class HairOnVertBuffer : MonoBehaviour {
 
   public int fullVertCount;
   private int numGroups;
-  private int numThreads = 64;
+  private int numThreads = 256;
 
   public ColliderBuffer colliders;
 
@@ -56,6 +73,8 @@ public class HairOnVertBuffer : MonoBehaviour {
 
   private float[] triAreas;
 
+  private float[] transformValues;
+
 
   // Use this for initialization
   void Start () {
@@ -64,12 +83,20 @@ public class HairOnVertBuffer : MonoBehaviour {
     if( triBuffer == null ){ triBuffer = gameObject.GetComponent<TriangleBuffer>(); }
 
     print( distBetweenHairs);
+    transformValues = new float[16];
 
     fullVertCount = totalHairs * numVertsPerHair;
 
     material = new Material( material );
 
     numGroups = (fullVertCount+(numThreads-1))/numThreads;
+
+    outBuffer = new ComputeBuffer(numThreads, 4 * sizeof(float));
+    outFloats = new float[numThreads * 4];
+
+    finalBuffer = new ComputeBuffer(1, 4 * sizeof(float));
+    finalFloats = new float[4];
+
 
     _kernelCollision = collisionShader.FindKernel("CSMain");
     _kernelConstraint = constraintShader.FindKernel("CSMain");
@@ -93,6 +120,8 @@ public class HairOnVertBuffer : MonoBehaviour {
 
     _buffer = new ComputeBuffer( fullVertCount , vertStructSize * sizeof(float));
     values = new float[ fullVertCount * vertStructSize ];
+
+
 
     // Used for assigning to our buffer;
     int index = 0;
@@ -256,6 +285,29 @@ public class HairOnVertBuffer : MonoBehaviour {
 
     collisionShader.SetFloat( "_SpringDistance" , distBetweenHairs );
 
+
+
+            collisionShader.SetVector( "_Hand1", cInfo1.interactionTip.transform.position);
+        collisionShader.SetVector( "_Hand2",cInfo2.interactionTip.transform.position);
+
+        collisionShader.SetFloat( "_Trigger1", cInfo1.triggerVal);
+        collisionShader.SetFloat( "_Trigger2", cInfo2.triggerVal);
+
+
+
+Matrix4x4 m = transform.localToWorldMatrix;
+     for( int i = 0; i < 16; i++ ){
+      int x = i % 4;
+      int y = (int) Mathf.Floor(i / 4);
+      transformValues[ i] = m[x,y];
+    }
+
+
+
+
+    collisionShader.SetFloats( "_transform",transformValues );
+
+
     if( colliders != null ){
     if( colliders._buffer != null ){
       collisionShader.SetInt(  "_NumberColliders" , colliders.count );
@@ -264,7 +316,14 @@ public class HairOnVertBuffer : MonoBehaviour {
 
     collisionShader.SetFloat("_BREATH", breath.regular );
 
+    collisionShader.SetFloat("_HandRepelRadius", handRepelRadius);
+    collisionShader.SetFloat("_HandRepelStrength", handRepelStrength);
 
+
+    if( calcOut == true ){
+
+        collisionShader.SetBuffer( 0 , "outBuffer"     , outBuffer );
+    }
 //    print(vertBuffer);
 //s    print(vertBuffer._buffer);
     collisionShader.SetBuffer( _kernelCollision , "hairBuffer"     , _buffer );
@@ -291,6 +350,20 @@ public class HairOnVertBuffer : MonoBehaviour {
     constraintShader.SetInt( "_VertsPerHair" , numVertsPerHair );
     constraintShader.SetBuffer( _kernelConstraint , "vertBuffer"     , _buffer );
     constraintShader.Dispatch( _kernelConstraint, (numGroups / 2) + 1 , 1 , 1);
+
+
+        if( calcOut == true ){
+
+
+        gatherShader.SetBuffer( 0 , "floatBuffer" , outBuffer );
+        gatherShader.SetBuffer( 0 , "gatherBuffer" , finalBuffer );
+
+        gatherShader.Dispatch( 0, 1 , 1 , 1 );
+
+        finalBuffer.GetData(finalFloats);
+       // print( finalFloats[0]);
+
+      }
 
   }
 

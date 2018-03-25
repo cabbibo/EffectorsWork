@@ -30,6 +30,7 @@
             #include "UnityCG.cginc"
             #include "AutoLight.cginc"
             #include "Lighting.cginc"
+            #include "Chunks/hsv.cginc"
 
 
             #include "Chunks/HairVert.cginc"
@@ -165,7 +166,7 @@
             }
 
             float getRadius( float row ){
-              return  1 * pow((1 - row ),.5) + (sin( row * 10 )+1) * .03 + row *row* row * .2 + (sin( row * 100)+1) * ( 1-row) * .02;
+              return  10 * pow((1 - row ),.5) + (sin( row * 10 )+1) * .03 + row *row* row * .2 + (sin( row * 100)+1) * ( 1-row) * .02;
             }
         //Our vertex function simply fetches a point from the buffer corresponding to the vertex index
         //which we transform with the view-projection matrix before passing to the pixel program.
@@ -224,8 +225,11 @@
 
             float lengthModulator = (sin( float( bladeID) * 16135. ) + 2)/2;
 
-            float radius  = .04 * (1-r1 * r1) * (r1 * r1);// * getRadius( r1 );
-            float radiusU = .04 * (1-r2 * r2) * (r2 * r2);// * getRadius( r2 );
+            float fr1 = r1;// + (1/float(_TubeLength));
+            float fr2= r2;// + (1/float(_TubeLength));
+
+            float radius  = .2 * (1-fr1 * fr1) * (fr1 * fr1);// * getRadius( fr1 );
+            float radiusU = .2 * (1-fr2 * fr2) * (fr2 * fr2);// * getRadius( r2 );
 
             //radius *= lengthModulator;
             //radiusU *= lengthModulator;
@@ -291,7 +295,7 @@
           o.pos = mul (UNITY_MATRIX_VP, float4(o.worldPos,1.0f));
           o.nor = finalNor;
           o.uv = finalUV;
-          o.debug = _WorldSpaceLightPos0.xyz;
+          o.debug =float3( float(bladeID) * .0003 , 0, 0);// _WorldSpaceLightPos0.xyz;
 
           o.eye = _WorldSpaceCameraPos - o.worldPos;
 
@@ -304,7 +308,7 @@
         //Pixel function returns a solid color for each point.
         float4 frag (varyings v) : COLOR {
 
-          float  atten = LIGHT_ATTENUATION(i);
+//          float  atten = LIGHT_ATTENUATION(i);
 
 
           float m = dot( v.debug , v.nor );
@@ -332,6 +336,10 @@
 
           col = v.nor * .5 + .5;
           col *= lightV;
+
+          refl *= pow( refl , 10 );
+          col = hsv(refl,1,refl);// * .5 + .5;
+          col += cubeCol * 2*hsv( v.uv.x * .3 - _Time.x * 2  + v.debug.x, .6 , 1);
 
         // col *= cubeCol;
         //col = float3(1,1,1);

@@ -1,0 +1,94 @@
+﻿#pragma kernel CSMain
+
+
+
+int _NumberThreads;
+
+
+
+int _VertsPerHair;
+float _SpringDistance;
+int _PassID;
+int _CurrentVert;
+
+
+  struct Vert{
+    float3 pos;
+    float3 oPos;
+    float3 ooPos;
+    float3 nor;
+    float2 uv;
+    float id;
+    float width;
+    float cap; // 0 for no cap, 1 for start , 2 for end
+    float3 extraInfo;
+    float3 debug;
+  };
+
+
+RWStructuredBuffer<Vert> vertBuffer;
+#define NR_THREADS 256
+
+[numthreads(NR_THREADS,1,1)]
+void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 id : SV_DispatchThreadID) {
+
+  //int pID = id.x + id.y * gridX + id.z * gridX * gridY;
+
+  int pID = threadID + u3GroupID * NR_THREADS;
+
+	pID = pID * 2;
+  	pID = pID + _PassID;
+
+ 	Vert v1 = vertBuffer[pID];
+
+ 	if( v1.cap == 2){
+ 		// Don't worry about one above cuz it doesn't exist!
+ 		vertBuffer[ pID ] = v1;
+ 	}else{
+
+
+ 		Vert v2 = vertBuffer[ pID + 1 ];
+
+ 		float3 dif = v1.pos - v2.pos;
+ 		float l = length( dif );
+
+ 		//float n = noise( v1.pos * 20 );
+		float difference = 0;
+
+ 		if( l > 0 ){
+ 			// extra info.x is our length!
+			difference = (l- v1.extraInfo.x/2 ) / l;
+		}
+
+		float3 translate = dif * .6* difference;
+		float3 t1 = 1 * translate;
+		float3 t2 = 1 * translate;
+
+		float3 n1 = v1.pos - t1;
+		float3 n2 = v2.pos + t2;
+
+		if( v1.cap == 1){
+
+			v1.pos = v1.pos;
+			v2.pos = n2 + t2; // double move!
+
+		}else if( v2.cap == 2 ){
+
+			v1.pos = n1 - t1;
+			v2.pos = v2.pos; // double move!
+	    }else{
+
+			v1.pos = n1;
+		    v2.pos = n2;
+
+		}
+
+		vertBuffer[ pID ] = v1;
+		vertBuffer[ pID + 1 ] = v2;
+
+ 	}
+
+
+
+
+}

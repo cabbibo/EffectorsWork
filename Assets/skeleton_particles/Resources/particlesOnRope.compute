@@ -1,0 +1,276 @@
+﻿#pragma kernel CSMain
+
+float _DeltaTime;
+float _Time;
+int _Reset;
+
+int _NumVerts;
+int _NumPointsOnRope;
+
+
+float3 _Hand1;
+float3 _Hand2;
+
+float _Trigger1;
+float _Trigger2;
+
+  struct RopePoint{
+    float3 pos;
+    float3 oPos;
+    float3 ooPos;
+    float3 nor;
+    float2 uv;
+    float id;
+    float width;
+    float cap; // 0 for no cap, 1 for start , 2 for end
+    float3 extraInfo;
+    float3 debug;
+  };
+
+
+   struct Vert{
+    float3 pos;
+    float3 vel;
+    float2 uv;
+    float life;
+    float3 debug;
+  };
+
+
+RWStructuredBuffer<Vert> vertBuffer;
+RWStructuredBuffer<RopePoint> ropeBuffer;
+
+
+#include "Chunks/snoise.cginc"
+#include "Chunks/curlNoise.cginc"
+
+
+// Not too fast!
+float3 getVel( float3 p1 , float3 p2 ){
+
+  float3 v = p1 - p2;
+
+  if( length( v ) > .5){ v = normalize( v ) *.5; }
+  return v;
+}
+
+#define NR_THREADS 256
+
+
+float3 cubicCurve( float t , float3  c0 , float3 c1 , float3 c2 , float3 c3 ){
+
+  float s  = 1. - t;
+
+  float3 v1 = c0 * ( s * s * s );
+  float3 v2 = 3. * c1 * ( s * s ) * t;
+  float3 v3 = 3. * c2 * s * ( t * t );
+  float3 v4 = c3 * ( t * t * t );
+
+  float3 value = v1 + v2 + v3 + v4;
+
+  return value;
+
+}
+
+float3 ropeVelocity( float val  ){
+  float3 p0 = float3( 0. , 0. , 0. );
+  float3 p1 = float3( 0. , 0. , 0. );
+  float base = val * (float(_NumPointsOnRope-1));
+  float baseUp   = floor( base );
+  float baseDown = ceil( base );
+  float amount = base - baseUp;
+
+  float nAmount = amount / ( baseDown - baseUp );
+
+
+  RopePoint vUp = ropeBuffer[ int( baseUp )   ];
+  RopePoint vDown = ropeBuffer[ int( baseDown )   ];
+
+  p0 = vUp.pos - vUp.oPos;
+  p1 = vDown.pos - vDown.oPos;
+
+  return lerp( p0 , p1 , nAmount );
+
+}
+
+float3 ropeAcceleration( float val  ){
+  float3 p0 = float3( 0. , 0. , 0. );
+  float3 p1 = float3( 0. , 0. , 0. );
+  float base = val * (float(_NumPointsOnRope-1));
+  float baseUp   = floor( base );
+  float baseDown = ceil( base );
+  float amount = base - baseUp;
+
+  float nAmount = amount / ( baseDown - baseUp );
+
+
+  RopePoint vUp = ropeBuffer[ int( baseUp )   ];
+  RopePoint vDown = ropeBuffer[ int( baseDown )   ];
+
+  p0 = (vUp.pos - vUp.oPos) - (vUp.oPos - vUp.ooPos);
+  p1 = (vDown.pos - vDown.oPos) - (vDown.oPos - vDown.ooPos);
+
+  return lerp( p0 , p1 , nAmount );
+
+}
+
+
+float3 cubicFromValue( in float val , out float3 upPos , out float3 doPos ){
+
+
+
+  float3 p0 = float3( 0. , 0. , 0. );
+  float3 v0 = float3( 0. , 0. , 0. );
+  float3 p1 = float3( 0. , 0. , 0. );
+  float3 v1 = float3( 0. , 0. , 0. );
+
+  float3 p2 = float3( 0. , 0. , 0. );
+
+  float base = val * (float(_NumPointsOnRope-1));
+  float baseUp   = floor( base );
+  float baseDown = ceil( base );
+  float amount = base - baseUp;
+
+  float nAmount = amount / ( baseDown - baseUp );
+
+
+  RopePoint vUp = ropeBuffer[ int( baseUp )   ];
+  RopePoint vDown = ropeBuffer[ int( baseDown )   ];
+
+  p0 = vUp.pos;
+  p1 = vDown.pos;
+
+
+  float3 pMinus;
+
+  int bUU = int( baseUp - 1. );
+
+
+  int bDD = int( baseDown + 1. );
+  //if( bDD >= _NumPointsOnRope ){ bDD -= _NumPointsOnRope; }
+	if( baseUp == 0. ){
+	     p2 = ropeBuffer[ int( baseDown + 1. )  ].pos;
+
+
+	     v1 = .5 * ( p2 - p0 );
+
+	 }else if( baseDown == float(_NumPointsOnRope-1) ){
+
+	     p2 = ropeBuffer[ int( baseUp - 1. )  ].pos;
+
+	     v0 = .5 * ( p1 - p2 );
+
+	 }else{
+
+	     float3 pMinus;
+
+	     pMinus = ropeBuffer[ int( baseUp - 1. )   ].pos;
+	     p2 =     ropeBuffer[ int( baseDown + 1. ) ].pos;
+
+	     v1 = .5 * ( p2 - p0 );
+	     v0 = .5 * ( p1 - pMinus );
+
+	 }
+
+
+
+  float3 c0 = p0;
+  float3 c1 = p0 + v0/3.;
+  float3 c2 = p1 - v1/3.;
+  float3 c3 = p1;
+
+
+  float3 pos = cubicCurve( amount , c0 , c1 , c2 , c3 );
+
+  upPos = cubicCurve( amount  + .1 , c0 , c1 , c2 , c3 );
+  doPos = cubicCurve( amount  - .1 , c0 , c1 , c2 , c3 );
+
+  return pos;
+
+
+}
+
+
+
+
+
+[numthreads(NR_THREADS,1,1)]
+void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 id : SV_DispatchThreadID) {
+
+
+
+  //int pID = id.x + id.y * gridX + id.z * gridX * gridY;
+
+  int pID = threadID + u3GroupID * NR_THREADS;
+
+
+
+  Vert vert = vertBuffer[ pID ];
+
+
+
+
+  if( _Reset == 1 ){
+    //vert.oPos = basePos + dif *vert.uv.x;// vert.ogPos;
+    //vert.pos  = basePos + dif *vert.uv.x;//vert.ogPos;
+  }else{
+
+
+
+
+  	float3 force = float3( 0 , 0 , 0 );//baseNor * g * (1-vert.uv.x )*(1-vert.uv.x );//float3( 0 , g , 0 );
+
+   	force += 1. * curlNoise( vert.pos * 3 );
+
+
+ 	float3 upPos; float3 doPos;
+
+ 	float r1 = vert.uv.y;
+
+    float3 targetPos = cubicFromValue( r1 , upPos , doPos );
+
+    if( vert.life < 0 ){
+    	vert.pos = targetPos;
+    }
+
+    float3 vel = ropeVelocity( r1 );
+    float3 acc = ropeAcceleration( r1 );
+
+    if( length(acc) > 1 && vert.life < 0){
+    	vert.life += 1;
+    	vert.vel = vel;
+    }
+
+
+    float3 dif;
+dif = vert.pos - _Hand1;
+
+    force += (5-10*_Trigger1)* normalize( dif ) / ( .3+ 10*length(dif));// / ( 1 + length(dif));
+dif = vert.pos - _Hand2;
+
+    force += (5-10*_Trigger2)*normalize( dif ) / ( .3 + 10 *length(dif));
+
+
+    //float3 vel = getVel( vert.pos , vert.oPos);
+
+    float3 acceleration = force;
+
+    float dampening = .96;//.99999;// - vert.life * .01;
+    //float3 next = vert.pos + vel * dampening  + acceleration * _DeltaTime * _DeltaTime;
+
+    vert.vel +=acceleration *_DeltaTime *_DeltaTime;
+
+    vert.pos = vert.pos + vert.vel;
+
+    vert.vel *= dampening;
+    vert.life -= .01;
+
+
+
+  }
+
+
+
+	vertBuffer[pID] = vert;
+
+}

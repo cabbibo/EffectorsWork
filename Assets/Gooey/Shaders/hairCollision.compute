@@ -7,8 +7,30 @@ int _Reset;
 float3 _Hand;
 float _SpringDistance;
 int _NumVerts;
+float3 _Hand1;
+float3 _Hand2;
+
+float _Trigger1;
+float _Trigger2;
+float3 handForce( float3 p1 , float3 p2 , float d ){
+
+  float3 dir = p1 - p2;
+  float l = length( dir );
+  dir = normalize( dir );
+
+  float dif = 0.;
+  if( l < d ){
+
+    dif = (d-l)/ d;
+  }
+
+  return dif * -dir;
+
+}
 
 
+float _HandRepelRadius;
+float _HandRepelStrength;
 
 #include "Chunks/Vert.cginc"
 #include "Chunks/HairVert.cginc"
@@ -26,14 +48,22 @@ float3 getVel( float3 p1 , float3 p2 ){
 }
 
 
-#define NR_THREADS 64
+#define NR_THREADS 256
+#include "Chunks/interlockedAddFunctions.cginc"
+#include "Chunks/noise.cginc"
+
+RWStructuredBuffer<float4> outBuffer;
 [numthreads(NR_THREADS,1,1)]
 void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 id : SV_DispatchThreadID) {
 
 
+  resetValue( threadID );
   //int pID = id.x + id.y * gridX + id.z * gridX * gridY;
 
   int pID = threadID + u3GroupID * NR_THREADS;
+
+
+float2 cV = float2(10000000,0);
 
   if( pID < _NumVerts ){
 
@@ -57,9 +87,16 @@ void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 
       float g = 10.3;
 
 
+
+      baseNor = normalize(mul( _transform , float4(baseNor,0)).xyz);
+
+
       float3 force = baseNor;
 
-      float3 tPos = basePos;//mul( _transform , float4( basePos , 1)).xyz;
+      force += float3(0,0,1) * (noise( vert.pos * 20 + float3(0,0,_Time))-.5);
+       force += float3(1,0,0) * (noise( vert.pos * 23 + 10 + float3(0,0,_Time))-.5);
+
+      float3 tPos = mul( _transform , float4( basePos , 1)).xyz;
 
 
       if( vert.uv.x == 0 ){
@@ -71,6 +108,23 @@ void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 
 
     // Inertia: objects in motion stay in motion.
       float3 vel = getVel( vert.pos , vert.oPos);
+
+    force +=_HandRepelStrength*(-.3 + _Trigger1) *handForce( vert.pos , _Hand1 , _HandRepelRadius);
+    force +=_HandRepelStrength *(-.3 + _Trigger2) * handForce(vert.pos , _Hand2 , _HandRepelRadius);//(2-10*_Trigger1)* normalize( dif ) / ( 1 + 10*length(dif));// / ( 1 + length(dif));
+
+    float3 dif;
+    float l ;
+
+    dif = vert.pos - _Hand1;
+    l = length( dif );
+    dif = vert.pos - _Hand2;
+    if( length( dif ) < l ){
+      l = length( dif);
+    }
+
+    cV.x = l;
+    cV.y = float( pID );
+
 
       float3 acceleration = force;
 
@@ -87,13 +141,16 @@ void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 
         vert.oPos = tPos;
       }
 
-
-
     }
-
 
     hairBuffer[pID] = vert;
 
+  }
+
+  interlockedClosestLength( cV , threadID );
+
+  if( threadID == 0 ){
+    outBuffer[ u3GroupID.x ] = interlockedFullValue;
   }
 
 }

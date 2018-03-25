@@ -10,7 +10,7 @@ public class SetMoonPos : MonoBehaviour {
     // Use this for initialization
 	void Start () {
 
-    m = GetComponent<MeshRenderer>().sharedMaterial;
+    m = GetComponent<MeshRenderer>().material;
             m.SetVector( "_MOON" , MOON.position);
 
 

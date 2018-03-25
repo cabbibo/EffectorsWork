@@ -12,7 +12,7 @@ public class SetStartHue : MonoBehaviour {
         float h = m.GetFloat("_HueSize") * Random.Range(0,.999f);
         float bh = m.GetFloat("_BaseHue");
 
-        print( h + bh );
+//        print( h + bh );
         GetComponent<MeshRenderer>().material.SetFloat("_BaseHue", h+bh );
 
 	}

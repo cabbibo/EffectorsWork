@@ -68,7 +68,7 @@ Material:
     - _NumberSteps: 4
     - _OcclusionStrength: 1
     - _Parallax: 0.02
-    - _PatternSize: 8.11
+    - _PatternSize: 10000
     - _SrcBlend: 1
     - _TotalDepth: 1
     - _UVSec: 0

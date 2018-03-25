@@ -1,0 +1,81 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &100100000
+Prefab:
+  m_ObjectHideFlags: 1
+  serializedVersion: 2
+  m_Modification:
+    m_TransformParent: {fileID: 0}
+    m_Modifications: []
+    m_RemovedComponents: []
+  m_ParentPrefab: {fileID: 0}
+  m_RootGameObject: {fileID: 1857437586592944}
+  m_IsPrefabParent: 1
+--- !u!1 &1857437586592944
+GameObject:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  serializedVersion: 5
+  m_Component:
+  - component: {fileID: 4874068148739442}
+  - component: {fileID: 114846845457727104}
+  - component: {fileID: 114245382331759752}
+  m_Layer: 0
+  m_Name: RopeConnection
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4874068148739442
+Transform:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1857437586592944}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.3881505, y: 0.24315572, z: 5.7965145}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &114245382331759752
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1857437586592944}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a4a563a8ef452e4d8c799c0841f41b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  numberParticles: 5000
+  physics: {fileID: 7200000, guid: bd607308244de7e40a8f5cb6f86f9650, type: 3}
+  particleMat: {fileID: 2100000, guid: df3c796e8c0ddde43a6d61f314525a79, type: 2}
+  nrThreads: 256
+--- !u!114 &114846845457727104
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1857437586592944}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f6c64a05a2b070a40943f00e3e51ee3b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  FromHand: {fileID: 0}
+  ToHand: {fileID: 0}
+  numberPoints: 64
+  smoothedNumberPoints: 100
+  numberSides: 10
+  ropeLength: 2
+  physics: {fileID: 7200000, guid: 2f12c587639e7fb4fac667ddadcf0a08, type: 3}
+  constraintShader: {fileID: 7200000, guid: 89866aeed8b812c4e8d6c1f2503dbfda, type: 3}
+  nrThreads: 256
+  pointMat: {fileID: 2100000, guid: df3c796e8c0ddde43a6d61f314525a79, type: 2}
+  lineMat: {fileID: 2100000, guid: a096fd150cea1bc41906d37cc6dd3d16, type: 2}
+  meshMat: {fileID: 2100000, guid: 0181cf50ae3f4e246921ed88ce040f81, type: 2}

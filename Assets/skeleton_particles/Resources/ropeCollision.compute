@@ -1,0 +1,182 @@
+﻿#pragma kernel CSMain
+
+float _DeltaTime;
+float _Time;
+int _Reset;
+
+int _NumVerts;
+
+float3 _From;
+float3 _To;
+
+float _SpringDistance;
+int _VertsPerHair;
+
+float3 _Hand1;
+float3 _Hand2;
+
+float _Trigger1;
+float _Trigger2;
+
+
+  struct Vert{
+    float3 pos;
+    float3 oPos;
+    float3 ooPos;
+    float3 nor;
+    float2 uv;
+    float id;
+    float width;
+    float cap; // 0 for no cap, 1 for start , 2 for end
+    float3 extraInfo;
+    float3 debug;
+  };
+
+
+
+RWStructuredBuffer<Vert> vertBuffer;
+
+
+
+
+// Not too fast!
+float3 getVel( float3 p1 , float3 p2 ){
+
+  float3 v = p1 - p2;
+
+  if( length( v ) > .5){ v = normalize( v ) *.5; }
+  return v;
+}
+
+float3 handForce( float3 p1 , float3 p2 , float d ){
+
+  float3 dir = p1 - p2;
+  float l = length( dir );
+  dir = normalize( dir );
+
+  float dif = 0.;
+  if( l < d ){
+
+    dif = (d-l)/ d;
+  }
+
+  return dif * -dir;
+
+}
+#define NR_THREADS 256
+
+#include "Chunks/springForce.cginc"
+#include "Chunks/interlockedAddFunctions.cginc"
+
+RWStructuredBuffer<float4> outBuffer;
+[numthreads(NR_THREADS,1,1)]
+void CSMain (uint threadID : SV_GroupIndex, uint3 u3GroupID : SV_GroupID, uint3 id : SV_DispatchThreadID) {
+
+
+
+  resetValue( threadID );
+
+  //int pID = id.x + id.y * gridX + id.z * gridX * gridY;
+
+  int pID = threadID + u3GroupID * NR_THREADS;
+
+  int flip = pID % 2;
+  Vert vert = vertBuffer[ pID ];
+
+  int d = (pID - 1) % _NumVerts;
+  int u = (pID + 1) % _NumVerts;
+  Vert vertU = vertBuffer[u];
+  Vert vertD = vertBuffer[d];
+
+
+float2 cV = float2(10000000,0);
+
+  if( _Reset == 1 ){
+    float3 dif = _From - _To;
+
+    float f = vert.uv.x / float(_NumVerts);
+    float3 fPos = dif * f + _To;
+
+    vert.oPos = fPos;// vert.ogPos;
+    vert.pos  = fPos;//vert.ogPos;
+
+
+  }else{
+
+
+
+
+  	float3 force = float3( 0 , -2 , 0 );//baseNor * g * (1-vert.uv.x )*(1-vert.uv.x );//float3( 0 , g , 0 );
+
+
+    // Attract towards hands
+    if( vert.cap == 1 ){
+      force += springForce( vert.pos , _From , 0 ) * 10000.;
+      vert.debug = float3(   .5 , .1 , 1.);
+    }else if( vert.cap == 2 ){
+      force += springForce( vert.pos , _To , 0 ) * 10000.;
+      vert.debug = float3( .1 , .5 , 1.);
+    }
+
+    force += 10 *(-.3 + _Trigger1) *handForce( vert.pos , _Hand1 , .6);
+     force += 10  *(-.3 + _Trigger2) * handForce(vert.pos , _Hand2 , .6);//(2-10*_Trigger1)* normalize( dif ) / ( 1 + 10*length(dif));// / ( 1 + length(dif));
+
+
+
+    float3 dif;
+float l ;
+    dif = vert.pos - _Hand1;
+
+l = length( dif );
+  //  force += (5-10*_Trigger1)* normalize( dif ) / ( .3+ 10*length(dif));// / ( 1 + length(dif));
+dif = vert.pos - _Hand2;
+
+if( length( dif ) < l ){
+  l = length( dif);
+}
+
+cV.x = l;
+cV.y = float( pID );
+
+
+    //force += (5-10*_Trigger2)*normalize( dif ) / ( .3 + 10 *length(dif));
+
+
+    //force +=3 *(vert.pos - float3(0,1.5,0));
+    float3 vel = getVel( vert.pos , vert.oPos);
+
+    float3 acceleration = force;
+
+    float dampening = .99;//.99999;// - vert.life * .01;
+    float3 next = vert.pos + vel * dampening  + acceleration * _DeltaTime * _DeltaTime;
+
+    vert.oPos = vert.pos;
+    vert.pos = next;
+
+
+
+    // Attract towards hands
+    if( vert.cap == 1 ){
+      vert.pos = _From;
+      vert.oPos = _From;
+      vert.debug = float3(   .5 , .1 , 1.);
+    }else if( vert.cap == 2 ){
+
+      vert.pos = _To;
+      vert.oPos = _To;
+      vert.debug = float3( .1 , .5 , 1.);
+    }
+
+
+  }
+
+  interlockedClosestLength( cV , threadID );
+
+  if( threadID == 0 ){
+    outBuffer[ u3GroupID.x ] = interlockedFullValue;
+  }
+
+
+	vertBuffer[pID] = vert;
+
+}
